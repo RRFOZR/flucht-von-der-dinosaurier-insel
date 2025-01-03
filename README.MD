@@ -49,16 +49,19 @@ Möge es als schöne Erinnerung dienen, wann immer wir dieses Projekt wieder auf
 ### Spielzustände und Steuerung
 
 - **Hauptmenü:**
+
   - `ENTER`: Spiel starten
   - `H`: Hilfe anzeigen
   - `Q`: Spiel beenden
 
 - **Spielmodus:**
+
   - `ESC`: Spiel pausieren
   - `Leertaste`: Repellent benutzen
   - `E`/`Rechts-Shift`: Trank verwenden
 
 - **Pause-Menü:**
+
   - `ESC`: Spiel fortsetzen
   - `H`: Hilfe anzeigen
   - `M`: Musik ein-/ausschalten
