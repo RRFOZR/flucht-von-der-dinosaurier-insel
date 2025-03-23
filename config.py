@@ -50,8 +50,8 @@ class Config:
     LAVA_INTERVAL = 10.0
     LAVA_DAMAGE = 20
 
-    SPIKE_DAMAGE = 1
-    SPIKES_ENABLED = True
+    SPIKE_DAMAGE = 0
+    SPIKES_ENABLED = False
 
     POTION_HEAL = 25
     REPELLENT_DURATION = 10.0
