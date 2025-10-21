@@ -27,7 +27,7 @@ class Player(Entity):
 
         self.current_frame = 0
         self.animation_timer = 0.0
-        self.animation_interval = 0.2
+        self.animation_interval = 0.15  # Faster animation for smooth 60 FPS
         self.facing_left = False
 
         # Footstep audio

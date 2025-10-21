@@ -9,7 +9,7 @@ class Config:
 
     WINDOW_WIDTH = 1500
     WINDOW_HEIGHT = 900
-    FPS = 30
+    FPS = 60  # Increased to 60 FPS for ultra-smooth gameplay!
 
     MAP_WIDTH = 512
     MAP_HEIGHT = 512
@@ -29,13 +29,13 @@ class Config:
         5: {"color": (128, 128, 128),"passable": True,  "name": "Spikes"}
     }
 
-    PLAYER_SPEED = 1
+    PLAYER_SPEED = 30  # Pixels per second (adjusted for delta time)
     PLAYER_MAX_HP = 120
 
     DINOSAUR_COUNT_NORMAL = 100
-    DINOSAUR_SPEED_NORMAL = 1.0
+    DINOSAUR_SPEED_NORMAL = 30.0  # Pixels per second (adjusted for delta time)
     DINOSAUR_COUNT_AGGRESSIVE = 60
-    DINOSAUR_SPEED_AGGRESSIVE = 0.8
+    DINOSAUR_SPEED_AGGRESSIVE = 24.0  # Pixels per second (adjusted for delta time)
     DINOSAUR_SIGHT_DAY = 5
     DINOSAUR_SIGHT_NIGHT = 8
     DINOSAUR_ATTACK_DAMAGE = 5
