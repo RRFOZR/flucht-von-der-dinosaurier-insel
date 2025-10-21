@@ -18,6 +18,18 @@ from engine.post_processing import PostProcessing
 from engine.render_layers import LayerManager, RenderLayer
 from engine.audio_3d import Audio3D
 
+# New fundamental engine systems
+from engine.ecs import (
+    Component, Entity, System, World,
+    TransformComponent, HealthComponent, VelocityComponent,
+    SpriteComponent, AIComponent, InventoryComponent
+)
+from engine.state_stack import GameStateBase, StateStack
+from engine.save_load import SaveLoadSystem, serialize_player, serialize_dinosaur, serialize_game_state
+from engine.animation_controller import Animation, AnimationState, AnimationStateMachine, AnimationController
+from engine.audio_manager import AudioChannel, AudioManager
+from engine.resource_preloader import ResourcePreloader
+
 __all__ = [
     # Core systems
     'Camera',
@@ -57,4 +69,39 @@ __all__ = [
     # Debug & Tools
     'DebugOverlay',
     'ConfigWatcher',
+
+    # Entity Component System
+    'Component',
+    'Entity',
+    'System',
+    'World',
+    'TransformComponent',
+    'HealthComponent',
+    'VelocityComponent',
+    'SpriteComponent',
+    'AIComponent',
+    'InventoryComponent',
+
+    # State Stack
+    'GameStateBase',
+    'StateStack',
+
+    # Save/Load System
+    'SaveLoadSystem',
+    'serialize_player',
+    'serialize_dinosaur',
+    'serialize_game_state',
+
+    # Animation Controller
+    'Animation',
+    'AnimationState',
+    'AnimationStateMachine',
+    'AnimationController',
+
+    # Enhanced Audio Manager
+    'AudioChannel',
+    'AudioManager',
+
+    # Resource Preloader
+    'ResourcePreloader',
 ]

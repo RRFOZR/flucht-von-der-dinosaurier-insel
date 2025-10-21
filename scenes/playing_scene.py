@@ -103,9 +103,9 @@ class PlayingScene(Scene):
             dx += jdx
             dy += jdy
 
-        # Move player
-        dx *= Config.PLAYER_SPEED
-        dy *= Config.PLAYER_SPEED
+        # Move player (frame-independent with delta time)
+        dx *= Config.PLAYER_SPEED * dt
+        dy *= Config.PLAYER_SPEED * dt
         self.game.player.move(dx, dy, self.game.game_map)
         self.game.player.update(dt)
 

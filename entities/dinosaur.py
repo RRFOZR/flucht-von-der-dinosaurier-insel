@@ -67,11 +67,11 @@ class Dinosaur(Entity):
                 self.state = Dinosaur.IDLE
 
         if self.state == Dinosaur.CHASE:
-            self._chase(player, game_map)
+            self._chase(player, game_map, dt)
         elif self.state == Dinosaur.FLEE:
-            self._flee(player, game_map)
+            self._flee(player, game_map, dt)
         else:
-            self._idle_move(game_map)
+            self._idle_move(game_map, dt)
 
         # Use dt for frame-independent animation
         self.animation_timer += dt
@@ -90,33 +90,35 @@ class Dinosaur(Entity):
             return self.frames_left[self.current_frame]
         return self.frames_right[self.current_frame]
 
-    def _chase(self, player: Player, game_map: list[list[int]]) -> None:
+    def _chase(self, player: Player, game_map: list[list[int]], dt: float) -> None:
         """
         Chase the player.
 
         Args:
             player (Player): The player instance.
             game_map (list[list[int]]): The game map grid.
+            dt (float): Delta time in seconds.
         """
         dx, dy = direction_towards(self.x, self.y, player.x, player.y)
-        nx = self.x + dx * Config.DINOSAUR_SPEED_AGGRESSIVE
-        ny = self.y + dy * Config.DINOSAUR_SPEED_AGGRESSIVE
+        nx = self.x + dx * Config.DINOSAUR_SPEED_AGGRESSIVE * dt
+        ny = self.y + dy * Config.DINOSAUR_SPEED_AGGRESSIVE * dt
         if is_passable(int(nx), int(ny), game_map, for_dino=True):
             self.x = nx
             self.y = ny
         self.facing_left = (dx < 0)
 
-    def _flee(self, player: Player, game_map: list[list[int]]) -> None:
+    def _flee(self, player: Player, game_map: list[list[int]], dt: float) -> None:
         """
         Flee from the player.
 
         Args:
             player (Player): The player instance.
             game_map (list[list[int]]): The game map grid.
+            dt (float): Delta time in seconds.
         """
         dx, dy = direction_towards(player.x, player.y, self.x, self.y)
-        nx = self.x + dx * Config.DINOSAUR_SPEED_AGGRESSIVE
-        ny = self.y + dy * Config.DINOSAUR_SPEED_AGGRESSIVE
+        nx = self.x + dx * Config.DINOSAUR_SPEED_AGGRESSIVE * dt
+        ny = self.y + dy * Config.DINOSAUR_SPEED_AGGRESSIVE * dt
         if is_passable(int(nx), int(ny), game_map, for_dino=True):
             self.x = nx
             self.y = ny
@@ -127,17 +129,18 @@ class Dinosaur(Entity):
             self.just_attacked = False
             self.state = Dinosaur.IDLE
 
-    def _idle_move(self, game_map: list[list[int]]) -> None:
+    def _idle_move(self, game_map: list[list[int]], dt: float) -> None:
         """
         Perform random movement when idle.
 
         Args:
             game_map (list[list[int]]): The game map grid.
+            dt (float): Delta time in seconds.
         """
         if random.random() < Config.DINOSAUR_RANDOM_MOVE_CHANCE:
             direction = random.choice([(1, 0), (-1, 0), (0, 1), (0, -1)])
-            nx = self.x + direction[0] * Config.DINOSAUR_SPEED_NORMAL
-            ny = self.y + direction[1] * Config.DINOSAUR_SPEED_NORMAL
+            nx = self.x + direction[0] * Config.DINOSAUR_SPEED_NORMAL * dt
+            ny = self.y + direction[1] * Config.DINOSAUR_SPEED_NORMAL * dt
             if is_passable(int(nx), int(ny), game_map, for_dino=True):
                 self.x = nx
                 self.y = ny
