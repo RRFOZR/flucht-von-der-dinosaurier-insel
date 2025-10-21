@@ -23,7 +23,7 @@ class Camera:
         self.y = 0.0
         self.target_x = 0.0
         self.target_y = 0.0
-        self.smoothness = 0.15  # Higher = faster following (0-1)
+        self.smoothness = 0.22  # Optimized for buttery-smooth 60 FPS (0-1)
 
     def set_target(self, x: float, y: float) -> None:
         """

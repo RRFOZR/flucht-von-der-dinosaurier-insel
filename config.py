@@ -9,7 +9,7 @@ class Config:
 
     WINDOW_WIDTH = 1500
     WINDOW_HEIGHT = 900
-    FPS = 30
+    FPS = 60  # Increased to 60 FPS for ultra-smooth gameplay!
 
     MAP_WIDTH = 512
     MAP_HEIGHT = 512

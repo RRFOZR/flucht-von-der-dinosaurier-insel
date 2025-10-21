@@ -145,7 +145,7 @@ class PlayingScene(Scene):
 
         # Update dinosaurs with spatial optimization
         for dino in self.game.dinosaurs:
-            dino.update(self.game.player, self.game.game_map, night)
+            dino.update(self.game.player, self.game.game_map, night, dt)
 
         # Collision detection
         collision_manager.check_collisions(self.game)

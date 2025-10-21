@@ -39,10 +39,10 @@ class Dinosaur(Entity):
 
         self.current_frame = 0
         self.animation_timer = 0.0
-        self.animation_interval = 0.2
+        self.animation_interval = 0.15  # Faster animation for smooth 60 FPS
         self.facing_left = False
 
-    def update(self, player: Player, game_map: list[list[int]], night: bool) -> None:
+    def update(self, player: Player, game_map: list[list[int]], night: bool, dt: float = 1/60.0) -> None:
         """
         Update the dinosaur's state based on the player's position and time of day.
 
@@ -50,6 +50,7 @@ class Dinosaur(Entity):
             player (Player): The player instance.
             game_map (list[list[int]]): The game map grid.
             night (bool): Whether it's currently night time.
+            dt (float): Delta time in seconds since last update.
         """
         dist = math.dist((self.x, self.y), (player.x, player.y))
 
@@ -72,7 +73,8 @@ class Dinosaur(Entity):
         else:
             self._idle_move(game_map)
 
-        self.animation_timer += 1 / Config.FPS
+        # Use dt for frame-independent animation
+        self.animation_timer += dt
         if self.animation_timer >= self.animation_interval:
             self.animation_timer = 0.0
             self.current_frame = (self.current_frame + 1) % len(self.frames_right)
