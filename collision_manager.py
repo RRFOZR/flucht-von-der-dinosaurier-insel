@@ -7,6 +7,13 @@ from typing import TYPE_CHECKING
 from config import Config
 from sound_manager import sound_manager
 
+# Import event bus for decoupled event handling
+try:
+    from engine.event_bus import event_bus
+    USE_EVENT_BUS = True
+except ImportError:
+    USE_EVENT_BUS = False
+
 if TYPE_CHECKING:
     from entities import Player, Dinosaur, Item
     from game import Game
@@ -27,6 +34,10 @@ def check_collisions(game: Game) -> None:
         game.hud.trigger_flash((255, 0, 0), 100, 0.2)
         logger.info("Player hit by lava!")
 
+        # Emit event
+        if USE_EVENT_BUS:
+            event_bus.emit('player_damaged', damage=Config.LAVA_DAMAGE, source='lava')
+
     # Spikes
     if Config.SPIKES_ENABLED:
         tile_id = game.game_map[int(player.y)][int(player.x)]
@@ -35,6 +46,10 @@ def check_collisions(game: Game) -> None:
             sound_manager.play("entities", "player_damage")
             game.hud.trigger_flash((255, 0, 0), 100, 0.2)
             logger.info("Player hit by spikes!")
+
+            # Emit event
+            if USE_EVENT_BUS:
+                event_bus.emit('player_damaged', damage=Config.SPIKE_DAMAGE, source='spikes')
 
     # Dinosaur collisions
     for dino in game.dinosaurs:
@@ -45,6 +60,10 @@ def check_collisions(game: Game) -> None:
                 sound_manager.play("entities", "player_damage")
                 game.hud.trigger_flash((255, 0, 0), 100, 0.2)
                 logger.info("Player attacked by dinosaur!")
+
+                # Emit event
+                if USE_EVENT_BUS:
+                    event_bus.emit('player_damaged', damage=Config.DINOSAUR_ATTACK_DAMAGE, source='dinosaur')
 
     # Item pickups
     for it in game.items[:]:
@@ -57,3 +76,7 @@ def check_collisions(game: Game) -> None:
             sound_manager.play("actions", "potion_pickup")
             game.hud.trigger_flash((0, 255, 0), 100, 0.2)
             logger.info(f"Player picked up a {it.type} at ({it.x}, {it.y}).")
+
+            # Emit event
+            if USE_EVENT_BUS:
+                event_bus.emit('item_picked_up', item_type=it.type, x=it.x, y=it.y)

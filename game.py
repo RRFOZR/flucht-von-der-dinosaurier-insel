@@ -3,78 +3,123 @@
 import pygame
 import sys
 import time
-import random
-import math
 import logging
 
 from config import Config
 from state import GameState
-from utils import is_night
 from map_gen import generate_island_map
 from entities import Player
 from hud import HUD
-from screens import TitleScreen, IntroScreen, HelpScreen, PauseScreen, LoseScreen, WinScreen
 from sound_manager import sound_manager
-
-# Newly imported modules
-import spawn_manager
-import collision_manager
 import boat_manager
-import input_manager
+
+# Import all scenes
+from scenes import (
+    MenuScene, IntroScene, HelpScene, PauseScene,
+    GameOverScene, WinScene, PlayingScene
+)
 
 logger = logging.getLogger(__name__)
 
-joystick_handler = None
-if Config.ENABLE_JOYSTICK:
-    try:
-        from joystick_handler import JoystickHandler
-        joystick_handler = JoystickHandler()
-    except Exception as e:
-        logger.warning(f"Failed to initialize joystick handler: {e}")
-        joystick_handler = None
-
 class Game:
     """
-    The main game class, now primarily an orchestrator that delegates tasks.
+    Main game class using the modernized engine architecture.
+    Now uses scene management, improved delta time, and modular systems.
     """
+
     def __init__(self) -> None:
+        """Initialize the game with all systems."""
         pygame.init()
         self.window = pygame.display.set_mode((Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT))
         pygame.display.set_caption("Flucht von der Dinosaurier Insel")
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("Arial", 20)
 
-        self.state = GameState.MAIN_MENU
         self.running = True
 
-        # Screens
-        self.title_screen = TitleScreen(self.window)
-        self.intro_screen = IntroScreen(self.window)
-        self.help_screen = HelpScreen(self.window)
-        self.pause_screen = PauseScreen(self.window)
-        self.lose_screen = LoseScreen(self.window)
-        self.win_screen = WinScreen(self.window)
+        # Delta time management
+        self.dt = 0
+        self.accumulator = 0
+        self.fixed_dt = 1 / 60.0  # Fixed physics timestep (60 FPS)
 
+        # Game state and data (will be set by reset_game)
+        self.game_map = None
+        self.player = None
         self.hud = None
-        self.reset_game()
+        self.items = []
+        self.dinosaurs = []
+        self.lava_fields = []
+        self.last_lava_time = 0
+
+        # Boat
+        self.boat_active = False
+        self.boat_x = None
+        self.boat_y = None
+        self.boat_frames = []
+        self.boat_current_frame = 0
+        self.boat_animation_timer = 0.0
+        self.boat_animation_interval = 0.3
+
+        # Initialize all scenes
+        self.scenes = {
+            GameState.MAIN_MENU: MenuScene(self),
+            GameState.INTRO: IntroScene(self),
+            GameState.HELP: HelpScene(self),
+            GameState.PAUSE: PauseScene(self),
+            GameState.GAME_OVER: GameOverScene(self),
+            GameState.WON: WinScene(self),
+            GameState.PLAYING: PlayingScene(self)
+        }
+
+        self.current_scene = self.scenes[GameState.MAIN_MENU]
+        self.current_scene.on_enter()
+
+        # Play startup sound
         sound_manager.play("actions", "game_start")
+
+        logger.info("Game initialized with modernized engine")
+
+    def change_scene(self, new_state: GameState) -> None:
+        """
+        Change to a different game scene.
+
+        Args:
+            new_state: The GameState to transition to
+        """
+        logger.info(f"Changing scene from {type(self.current_scene).__name__} to {new_state.name}")
+
+        # Exit current scene
+        if self.current_scene:
+            self.current_scene.on_exit()
+
+        # Enter new scene
+        self.current_scene = self.scenes[new_state]
+        self.current_scene.on_enter()
 
     def reset_game(self) -> None:
         """
-        Reset game state: generate map, create Player, spawn items/dinosaurs,
-        and set up boat frames, etc.
+        Reset game state: generate map, create Player, spawn items/dinosaurs.
+        Called when starting a new game.
         """
         logger.info("Resetting game state...")
+
+        # Generate map
         self.game_map = generate_island_map()
+
+        # Create player at center
         cx = Config.MAP_WIDTH // 2
         cy = Config.MAP_HEIGHT // 2
-
         self.player = Player(cx, cy)
+
+        # Create HUD
         self.hud = HUD(self.player, self)
+
+        # Clear entities
         self.items = []
         self.dinosaurs = []
 
-        # Spawn items, dinosaurs
+        # Spawn items and dinosaurs
+        import spawn_manager
         spawn_manager.spawn_items(self, count=6)
         spawn_manager.spawn_dinosaurs(
             self,
@@ -82,211 +127,91 @@ class Game:
             n_aggressive=Config.DINOSAUR_COUNT_AGGRESSIVE
         )
 
-        # Boat
+        # Reset boat
         self.boat_active = False
         self.boat_x = None
         self.boat_y = None
         self.boat_frames = boat_manager.create_boat_frames()
         self.boat_current_frame = 0
         self.boat_animation_timer = 0.0
-        self.boat_animation_interval = 0.3
 
-        # Lava
+        # Reset lava
         self.lava_fields = []
         self.last_lava_time = time.time()
-        self.start_time = time.time()
-
-        # Camera
-        self.camx = self.player.x
-        self.camy = self.player.y
-        self.old_night_state = None
 
         # Start background music
         sound_manager.play_music()
 
+        logger.info("Game reset complete")
+
     def run(self) -> None:
         """
-        Main game loop: handle events, update, draw.
+        Main game loop with improved delta time handling.
+        Uses a fixed timestep for physics and variable timestep for rendering.
         """
         try:
             while self.running:
-                dt = self.clock.tick(Config.FPS) / 1000.0
-                events = pygame.event.get()
+                # Get frame time
+                frame_time = self.clock.tick(Config.FPS) / 1000.0
+                self.accumulator += frame_time
 
+                # Process events
+                events = pygame.event.get()
                 for event in events:
                     if event.type == pygame.QUIT:
                         self.running = False
-                    # Delegate event logic to input_manager
-                    input_manager.handle_state_event(self, event)
+                    else:
+                        # Delegate to current scene
+                        self.current_scene.handle_event(event)
 
-                # Joystick
-                if Config.ENABLE_JOYSTICK and joystick_handler:
-                    joystick_actions = joystick_handler.process_events(events)
-                    for action in joystick_actions:
-                        if action == 'activate_repellent':
-                            if self.player.inventory.get("repellent", 0) > 0:
-                                self.player.trigger_repellent()
-                                self.hud.trigger_flash((0, 0, 255), 100, 0.2)
+                # Fixed timestep updates for consistent physics
+                while self.accumulator >= self.fixed_dt:
+                    self.current_scene.update(self.fixed_dt)
+                    self.accumulator -= self.fixed_dt
 
-                if self.state == GameState.PLAYING:
-                    self.update_playing(dt)
-
-                self.draw()
+                # Render
+                self.window.fill((30, 30, 30))
+                self.current_scene.render(self.window)
                 pygame.display.flip()
 
         except Exception as e:
-            logger.error(f"Caught exception in main loop: {e}")
+            logger.error(f"Caught exception in main loop: {e}", exc_info=True)
         finally:
-            if joystick_handler:
-                joystick_handler.quit()
-            pygame.quit()
-            sys.exit()
+            self.cleanup()
 
-    def update_playing(self, dt: float) -> None:
-        """
-        Update logic for the PLAYING state.
-        """
-        # Movement
-        keys = pygame.key.get_pressed()
-        dx = (keys[pygame.K_RIGHT] or keys[pygame.K_d]) - (keys[pygame.K_LEFT] or keys[pygame.K_a])
-        dy = (keys[pygame.K_DOWN] or keys[pygame.K_s]) - (keys[pygame.K_UP] or keys[pygame.K_w])
+    def cleanup(self) -> None:
+        """Clean up resources before exiting."""
+        logger.info("Cleaning up resources...")
 
-        if Config.ENABLE_JOYSTICK and joystick_handler:
-            jdx, jdy = joystick_handler.get_movement()
-            dx += jdx
-            dy += jdy
+        # Stop all sounds
+        pygame.mixer.stop()
+        pygame.mixer.music.stop()
 
-        dx *= Config.PLAYER_SPEED
-        dy *= Config.PLAYER_SPEED
-        self.player.move(dx, dy, self.game_map)
-        self.player.update(dt)
-        self.hud.update(dt)
+        # Quit joystick if it exists
+        playing_scene = self.scenes.get(GameState.PLAYING)
+        if playing_scene and hasattr(playing_scene, 'joystick_handler') and playing_scene.joystick_handler:
+            playing_scene.joystick_handler.quit()
 
-        # Day/Night
-        now = time.time()
-        current_time = now - self.start_time
-        night = is_night(current_time)
-        if self.old_night_state is None:
-            self.old_night_state = night
-        else:
-            if night != self.old_night_state:
-                self.old_night_state = night
-
-        # Lava check
-        if now - self.last_lava_time > Config.LAVA_INTERVAL:
-            self.lava_fields = spawn_manager.spawn_lava(self)
-            self.last_lava_time = now
-
-        # Update dinos
-        for dino in self.dinosaurs:
-            dino.update(self.player, self.game_map, night)
-
-        # Collision checks
-        collision_manager.check_collisions(self)
-
-        # Camera
-        self.camx = self.player.x
-        self.camy = self.player.y
-
-        # Boat arrival
-        cycles_passed = int(current_time // Config.CYCLE_LENGTH)
-        if (cycles_passed >= Config.BOAT_ARRIVAL_CYCLES) and not self.boat_active:
-            self.boat_active = True
-            boat_manager.place_boat(self)
-
-        # Win/Lose conditions
-        if self.boat_active and self.boat_x is not None:
-            if int(self.player.x) == self.boat_x and int(self.player.y) == self.boat_y:
-                sound_manager.play("actions", "win_game")
-                self.state = GameState.WON
-
-        if self.player.hp <= 0:
-            sound_manager.play("actions", "game_over")
-            self.state = GameState.GAME_OVER
-
-        # Boat animation
-        if self.boat_active:
-            self.boat_animation_timer += dt
-            if self.boat_animation_timer >= self.boat_animation_interval:
-                self.boat_animation_timer = 0.0
-                self.boat_current_frame = (self.boat_current_frame + 1) % len(self.boat_frames)
-
-    def draw(self) -> None:
-        """
-        Main draw method, calls draw_{map,entities,etc.}
-        """
-        self.window.fill((30, 30, 30))
-        if self.state == GameState.MAIN_MENU:
-            self.title_screen.draw()
-        elif self.state == GameState.INTRO:
-            self.intro_screen.draw()
-        elif self.state == GameState.HELP:
-            self.help_screen.draw()
-        elif self.state == GameState.PAUSE:
-            self.pause_screen.draw()
-        elif self.state == GameState.GAME_OVER:
-            self.lose_screen.draw()
-        elif self.state == GameState.WON:
-            self.win_screen.draw()
-        elif self.state == GameState.PLAYING:
-            self.draw_playing()
-
-    def draw_playing(self) -> None:
-        self.draw_map()
-        self.draw_entities()
-        self.hud.draw(self.window)
-
-        # Night overlay
-        now = time.time()
-        if is_night(now - self.start_time):
-            overlay = pygame.Surface((Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT), pygame.SRCALPHA)
-            overlay.fill(Config.NIGHT_OVERLAY)
-            self.window.blit(overlay, (0, 0))
-
-    def draw_map(self) -> None:
-        tile_cols = Config.WINDOW_WIDTH // Config.TILE_SIZE
-        tile_rows = Config.WINDOW_HEIGHT // Config.TILE_SIZE
-
-        start_x = max(0, int(self.camx) - tile_cols // 2 - 1)
-        end_x = min(Config.MAP_WIDTH, int(self.camx) + tile_cols // 2 + 2)
-        start_y = max(0, int(self.camy) - tile_rows // 2 - 1)
-        end_y = min(Config.MAP_HEIGHT, int(self.camy) + tile_rows // 2 + 2)
-
-        for ty in range(start_y, end_y):
-            for tx in range(start_x, end_x):
-                tile_id = self.game_map[ty][tx]
-                c = Config.BIOMES[tile_id]["color"]
-                if (tx, ty) in self.lava_fields:
-                    c = (255, 0, 0)  # Lava
-                sx, sy = self.world_to_screen(tx, ty)
-                pygame.draw.rect(self.window, c, (sx, sy, Config.TILE_SIZE, Config.TILE_SIZE))
-
-        # Boat
-        if self.boat_active and self.boat_x is not None:
-            bx, by = self.boat_x, self.boat_y
-            if start_x <= bx < end_x and start_y <= by < end_y:
-                sx, sy = self.world_to_screen(bx, by)
-                self.window.blit(self.boat_frames[self.boat_current_frame], (sx, sy))
-
-    def draw_entities(self) -> None:
-        # Player
-        sx, sy = self.world_to_screen(self.player.x, self.player.y)
-        self.window.blit(self.player.get_current_frame(), (sx, sy))
-
-        # Dinosaurs
-        for dino in self.dinosaurs:
-            dsx, dsy = self.world_to_screen(dino.x, dino.y)
-            self.window.blit(dino.get_current_frame(), (dsx, dsy))
-
-        # Items
-        for it in self.items:
-            isx, isy = self.world_to_screen(it.x, it.y)
-            self.window.blit(it.get_current_frame(), (isx, isy))
+        pygame.quit()
+        sys.exit()
 
     def world_to_screen(self, wx: float, wy: float) -> tuple[int, int]:
         """
-        Convert world coords to screen coords based on the camera.
+        Convert world coords to screen coords.
+        Delegates to the playing scene's camera if available.
+
+        Args:
+            wx: World x position in tiles
+            wy: World y position in tiles
+
+        Returns:
+            Tuple of (screen_x, screen_y) in pixels
         """
-        sx = (wx - self.camx) * Config.TILE_SIZE + Config.WINDOW_WIDTH // 2
-        sy = (wy - self.camy) * Config.TILE_SIZE + Config.WINDOW_HEIGHT // 2
+        # If we're in the playing scene, use its camera
+        if isinstance(self.current_scene, PlayingScene):
+            return self.current_scene.camera.world_to_screen(wx, wy)
+
+        # Fallback: simple conversion without camera
+        sx = wx * Config.TILE_SIZE
+        sy = wy * Config.TILE_SIZE
         return int(sx), int(sy)
