@@ -8,7 +8,8 @@ from state import GameState
 from config import Config
 from utils import is_night
 from sound_manager import sound_manager
-from engine import Camera, SpatialGrid, ParticleSystem
+from engine import (Camera, SpatialGrid, ParticleSystem, DebugOverlay,
+                   Audio3D, PostProcessing, InputBuffer)
 import spawn_manager
 import collision_manager
 import boat_manager
@@ -16,15 +17,27 @@ import boat_manager
 logger = logging.getLogger(__name__)
 
 class PlayingScene(Scene):
-    """Main gameplay scene with all game logic."""
+    """Main gameplay scene with all game logic and advanced engine features."""
 
     def __init__(self, game) -> None:
         super().__init__(game)
 
-        # Initialize engine systems
+        # Initialize core engine systems
         self.camera = Camera(Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT)
         self.spatial_grid = SpatialGrid(cell_size=10)
         self.particle_system = ParticleSystem()
+
+        # Advanced engine systems
+        self.debug_overlay = DebugOverlay()
+        self.audio_3d = Audio3D()
+        self.post_processing = PostProcessing(Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT)
+        self.input_buffer = InputBuffer(buffer_time=0.15)
+
+        # Configure camera with map bounds
+        map_bounds = pygame.Rect(0, 0,
+                                 Config.MAP_WIDTH * Config.TILE_SIZE,
+                                 Config.MAP_HEIGHT * Config.TILE_SIZE)
+        self.camera.set_bounds(map_bounds)
 
         # Timing
         self.start_time = 0
@@ -54,41 +67,31 @@ class PlayingScene(Scene):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 self.game.change_scene(GameState.PAUSE)
+            elif event.key == pygame.K_F3:
+                # Toggle debug overlay
+                self.debug_overlay.toggle()
+            elif event.key == pygame.K_F4:
+                # Toggle post-processing effects
+                self.post_processing.toggle_vignette()
             elif event.key == pygame.K_SPACE:
-                # Use repellent
-                if self.game.player.inventory.get("repellent", 0) > 0:
-                    self.game.player.trigger_repellent()
-                    self.game.hud.trigger_flash((0, 0, 255), 100, 0.2)
-                    # Emit particle effect
-                    px, py = self.camera.world_to_screen(self.game.player.x, self.game.player.y)
-                    self.particle_system.emit(
-                        px + Config.TILE_SIZE // 2,
-                        py + Config.TILE_SIZE // 2,
-                        count=20,
-                        color=(0, 0, 255),
-                        speed_range=(50, 100),
-                        lifetime_range=(0.3, 0.8),
-                        spread_angle=360
-                    )
+                # Use repellent with input buffering
+                self.input_buffer.buffer_input("use_repellent")
             elif event.key in (pygame.K_e, pygame.K_RSHIFT):
                 # Use potion
-                self.game.player.use_potion()
-                # Emit healing particles
-                if self.game.player.inventory.get("potion", 0) >= 0:  # Just used one
-                    px, py = self.camera.world_to_screen(self.game.player.x, self.game.player.y)
-                    self.particle_system.emit(
-                        px + Config.TILE_SIZE // 2,
-                        py + Config.TILE_SIZE // 2,
-                        count=15,
-                        color=(0, 255, 0),
-                        speed_range=(30, 70),
-                        lifetime_range=(0.5, 1.0),
-                        spread_angle=360,
-                        gravity=-20
-                    )
+                self.input_buffer.buffer_input("use_potion")
 
     def update(self, dt: float) -> None:
         """Update all gameplay logic."""
+        # Update debug metrics
+        self.debug_overlay.update(dt)
+        self.debug_overlay.set_metric("Entities", len(self.game.dinosaurs) + len(self.game.items) + 1)
+        self.debug_overlay.set_metric("Particles", self.particle_system.get_particle_count())
+        self.debug_overlay.set_metric("Position", f"({int(self.game.player.x)}, {int(self.game.player.y)})")
+        self.debug_overlay.set_metric("Camera Shake", "Yes" if self.camera.is_shaking() else "No")
+
+        # Update audio listener position
+        self.audio_3d.set_listener_position(self.game.player.x, self.game.player.y)
+
         # Get player input
         keys = pygame.key.get_pressed()
         dx = (keys[pygame.K_RIGHT] or keys[pygame.K_d]) - (keys[pygame.K_LEFT] or keys[pygame.K_a])
@@ -105,6 +108,9 @@ class PlayingScene(Scene):
         dy *= Config.PLAYER_SPEED
         self.game.player.move(dx, dy, self.game.game_map)
         self.game.player.update(dt)
+
+        # Process buffered inputs
+        self._process_buffered_inputs()
 
         # Update HUD
         self.game.hud.update(dt)
@@ -123,8 +129,11 @@ class PlayingScene(Scene):
             self.game.lava_fields = spawn_manager.spawn_lava(self.game)
             self.game.last_lava_time = now
 
+            # Camera shake for lava!
+            self.camera.shake(intensity=4, duration=0.4, falloff="exponential")
+
             # Emit lava particles at each lava field
-            for lx, ly in self.game.lava_fields[:5]:  # Limit particles to first 5 lava fields
+            for lx, ly in self.game.lava_fields[:5]:
                 px, py = self.camera.world_to_screen(lx, ly)
                 self.particle_system.emit(
                     px + Config.TILE_SIZE // 2,
@@ -134,7 +143,7 @@ class PlayingScene(Scene):
                     speed_range=(10, 30),
                     lifetime_range=(1.0, 2.0),
                     spread_angle=60,
-                    direction=-90,  # Upward
+                    direction=-90,
                     gravity=50
                 )
 
@@ -157,11 +166,16 @@ class PlayingScene(Scene):
         # Update particle system
         self.particle_system.update(dt)
 
+        # Update input buffer
+        self.input_buffer.update()
+
         # Boat arrival
         cycles_passed = int(current_time // Config.CYCLE_LENGTH)
         if (cycles_passed >= Config.BOAT_ARRIVAL_CYCLES) and not self.game.boat_active:
             self.game.boat_active = True
             boat_manager.place_boat(self.game)
+            # Big camera shake for boat arrival!
+            self.camera.shake(intensity=15, duration=1.2, falloff="exponential")
 
         # Win condition
         if self.game.boat_active and self.game.boat_x is not None:
@@ -181,8 +195,45 @@ class PlayingScene(Scene):
                 self.game.boat_animation_timer = 0.0
                 self.game.boat_current_frame = (self.game.boat_current_frame + 1) % len(self.game.boat_frames)
 
+    def _process_buffered_inputs(self) -> None:
+        """Process buffered inputs for better control feel."""
+        # Check for buffered repellent use
+        if self.input_buffer.consume_input("use_repellent"):
+            if self.game.player.inventory.get("repellent", 0) > 0:
+                self.game.player.trigger_repellent()
+                self.game.hud.trigger_flash((0, 0, 255), 100, 0.2)
+                # Screen shake!
+                self.camera.shake(intensity=3, duration=0.2)
+                # Emit particle effect
+                px, py = self.camera.world_to_screen(self.game.player.x, self.game.player.y)
+                self.particle_system.emit(
+                    px + Config.TILE_SIZE // 2,
+                    py + Config.TILE_SIZE // 2,
+                    count=25,
+                    color=(0, 0, 255),
+                    speed_range=(50, 120),
+                    lifetime_range=(0.3, 0.9),
+                    spread_angle=360
+                )
+
+        # Check for buffered potion use
+        if self.input_buffer.consume_input("use_potion"):
+            self.game.player.use_potion()
+            if self.game.player.inventory.get("potion", 0) >= 0:
+                px, py = self.camera.world_to_screen(self.game.player.x, self.game.player.y)
+                self.particle_system.emit(
+                    px + Config.TILE_SIZE // 2,
+                    py + Config.TILE_SIZE // 2,
+                    count=20,
+                    color=(0, 255, 0),
+                    speed_range=(30, 80),
+                    lifetime_range=(0.5, 1.2),
+                    spread_angle=360,
+                    gravity=-30
+                )
+
     def render(self, surface: pygame.Surface) -> None:
-        """Render the game world."""
+        """Render the game world with all effects."""
         # Draw map
         self._draw_map(surface)
 
@@ -201,6 +252,12 @@ class PlayingScene(Scene):
             overlay = pygame.Surface((Config.WINDOW_WIDTH, Config.WINDOW_HEIGHT), pygame.SRCALPHA)
             overlay.fill(Config.NIGHT_OVERLAY)
             surface.blit(overlay, (0, 0))
+
+        # Apply post-processing effects
+        self.post_processing.apply_all(surface)
+
+        # Draw debug overlay (if enabled)
+        self.debug_overlay.render(surface)
 
     def _draw_map(self, surface: pygame.Surface) -> None:
         """Draw the game map tiles."""
@@ -226,7 +283,7 @@ class PlayingScene(Scene):
                 surface.blit(self.game.boat_frames[self.game.boat_current_frame], (sx, sy))
 
     def _draw_entities(self, surface: pygame.Surface) -> None:
-        """Draw all game entities."""
+        """Draw all game entities with optimized culling."""
         # Draw player
         sx, sy = self.camera.world_to_screen(self.game.player.x, self.game.player.y)
         surface.blit(self.game.player.get_current_frame(), (sx, sy))

@@ -19,6 +19,9 @@ from scenes import (
     GameOverScene, WinScene, PlayingScene
 )
 
+# Import delta smoother for better frame pacing
+from engine import DeltaSmoother
+
 logger = logging.getLogger(__name__)
 
 class Game:
@@ -37,10 +40,11 @@ class Game:
 
         self.running = True
 
-        # Delta time management
+        # Delta time management with smoothing
         self.dt = 0
         self.accumulator = 0
         self.fixed_dt = 1 / 60.0  # Fixed physics timestep (60 FPS)
+        self.delta_smoother = DeltaSmoother(sample_size=10)  # Smooth frame times
 
         # Game state and data (will be set by reset_game)
         self.game_map = None
@@ -151,8 +155,9 @@ class Game:
         """
         try:
             while self.running:
-                # Get frame time
-                frame_time = self.clock.tick(Config.FPS) / 1000.0
+                # Get frame time and smooth it
+                raw_frame_time = self.clock.tick(Config.FPS) / 1000.0
+                frame_time = self.delta_smoother.smooth(raw_frame_time)
                 self.accumulator += frame_time
 
                 # Process events
