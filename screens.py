@@ -6,6 +6,7 @@ import logging
 from config import Config
 from state import GameState
 from sound_manager import sound_manager
+from resource_path import get_resource_path
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,9 @@ class BaseScreen:
         self.image = None
         if image_path:
             try:
-                loaded = pygame.image.load(image_path).convert_alpha()
+                # Use resource_path helper for PyInstaller compatibility
+                resource_file = get_resource_path(image_path)
+                loaded = pygame.image.load(resource_file).convert_alpha()
                 self.image = self.scale_image(loaded, Config.WINDOW_WIDTH * 0.9, Config.WINDOW_HEIGHT * 0.4)
             except pygame.error as e:
                 logger.warning(f"Could not load background image '{screen_key}': {e}")

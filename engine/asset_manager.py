@@ -4,6 +4,7 @@ import pygame
 import logging
 from typing import Optional
 from config import Config
+from resource_path import get_resource_path
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,9 @@ class AssetManager:
             return self.sprites[cache_key]
 
         try:
-            sprite = pygame.image.load(path).convert_alpha()
+            # Use resource_path helper for PyInstaller compatibility
+            resource_file = get_resource_path(path)
+            sprite = pygame.image.load(resource_file).convert_alpha()
 
             if size:
                 sprite = pygame.transform.scale(sprite, size)

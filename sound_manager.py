@@ -4,6 +4,7 @@ import pygame
 import random
 import logging
 from config import Config
+from resource_path import get_resource_path
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +32,13 @@ class SoundManager:
             self.sounds[category] = {}
             for name, path in sounds_dict.items():
                 if category == "environment" and name == "background_music":
-                    self.background_music_tracks = path
+                    # Background music is a list of paths
+                    self.background_music_tracks = [get_resource_path(p) for p in path]
                     continue
                 try:
-                    snd = pygame.mixer.Sound(path)
+                    # Use resource_path helper for PyInstaller compatibility
+                    resource_file = get_resource_path(path)
+                    snd = pygame.mixer.Sound(resource_file)
                     volume = Config.SOUND_VOLUMES.get(name, Config.DEFAULT_SOUND_VOLUME)
                     snd.set_volume(volume)
                     self.sounds[category][name] = snd

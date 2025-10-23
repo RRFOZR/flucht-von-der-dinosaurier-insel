@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from config import Config
 from sound_manager import sound_manager
+from resource_path import get_resource_path
 
 if TYPE_CHECKING:
     from game import Game
@@ -24,7 +25,9 @@ def create_boat_frames() -> list[pygame.Surface]:
         path = Config.get_sprite_path("boats", frame_key)
         if path:
             try:
-                boat_img = pygame.image.load(path).convert_alpha()
+                # Use resource_path helper for PyInstaller compatibility
+                resource_file = get_resource_path(path)
+                boat_img = pygame.image.load(resource_file).convert_alpha()
                 boat_img = pygame.transform.scale(
                     boat_img,
                     (Config.TILE_SIZE * Config.BOAT_SIZE_FACTOR,

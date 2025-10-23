@@ -6,6 +6,7 @@ import logging
 from config import Config
 from entities import Player
 from typing import TYPE_CHECKING
+from resource_path import get_resource_path
 
 if TYPE_CHECKING:
     from game import Game
@@ -33,7 +34,9 @@ class HUD:
             path = Config.get_sprite_path("items", item_type)
             if path:
                 try:
-                    sprite = pygame.image.load(path).convert_alpha()
+                    # Use resource_path helper for PyInstaller compatibility
+                    resource_file = get_resource_path(path)
+                    sprite = pygame.image.load(resource_file).convert_alpha()
                     sprite = pygame.transform.scale(sprite, (32, 32))
                     self.item_sprites[item_type] = sprite
                 except pygame.error as e:
