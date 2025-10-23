@@ -1,0 +1,30 @@
+# MANIFEST.in - Include additional files in Python package
+
+# Include all game assets
+recursive-include konrad_insel *
+
+# Include documentation
+include README.md
+include PACKAGING.md
+include FINAL_ENGINE_REFACTORING.md
+include ALL_ENGINE_FEATURES.md
+include 60FPS_UPGRADE.md
+include ENGINE_UPGRADE.md
+
+# Include requirements
+include requirements.txt
+
+# Include build scripts
+include build_executable.py
+include build_unix.sh
+include build_windows.bat
+include DinosaurIsland.spec
+
+# Exclude compiled Python files
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude *.so
+
+# Exclude build artifacts
+prune build
+prune dist

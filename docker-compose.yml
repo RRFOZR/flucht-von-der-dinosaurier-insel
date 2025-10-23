@@ -1,0 +1,26 @@
+# Docker Compose for Flucht von der Dinosaurier-Insel
+# Note: Requires X11 forwarding on Linux, complex on Windows/Mac
+# See PACKAGING.md for better distribution methods
+
+version: '3.8'
+
+services:
+  game:
+    build: .
+    container_name: dinosaur-island-game
+    volumes:
+      # Mount game directory for development
+      - .:/app
+      # Mount X11 socket for GUI (Linux only)
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    environment:
+      - DISPLAY=${DISPLAY}
+      # Disable access control for X11 (development only!)
+      - QT_X11_NO_MITSHM=1
+    network_mode: host
+    stdin_open: true
+    tty: true
+    # For audio on Linux
+    devices:
+      - /dev/snd:/dev/snd
+    privileged: true
