@@ -7,25 +7,23 @@ Handles pygame and SDL library bundling correctly
 import os
 import sys
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
+from PyInstaller.building.datastruct import Tree
 
 block_cipher = None
-
-# Collect all game assets
-game_assets = []
-for root, dirs, files in os.walk('konrad_insel'):
-    for file in files:
-        file_path = os.path.join(root, file)
-        game_assets.append((file_path, root))
 
 # Collect pygame data and libraries
 pygame_datas = collect_data_files('pygame')
 pygame_binaries = collect_dynamic_libs('pygame')
 
+# Create Tree object for konrad_insel directory
+# This includes the entire directory structure
+konrad_insel_tree = Tree('./konrad_insel', prefix='konrad_insel')
+
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=pygame_binaries,
-    datas=game_assets + pygame_datas,
+    datas=pygame_datas,
     hiddenimports=[
         'pygame',
         'pygame.mixer',
@@ -82,6 +80,7 @@ coll = COLLECT(
     a.binaries,
     a.zipfiles,
     a.datas,
+    konrad_insel_tree,  # Include game assets
     strip=False,
     upx=True,
     upx_exclude=[],
