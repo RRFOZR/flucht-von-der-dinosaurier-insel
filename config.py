@@ -65,56 +65,56 @@ class Config:
     SPRITES = {
         "entities": {
             "player": {
-                "idle_0": "konrad_insel/bg_entities/player_0.png",
-                "idle_1": "konrad_insel/bg_entities/player_1.png",
+                "idle_0": "bg_entities/player_0.png",
+                "idle_1": "bg_entities/player_1.png",
             },
             "dinosaur": {
                 "aggressive": {
-                    "idle_0": "konrad_insel/bg_entities/aggdino_0.png",
-                    "idle_1": "konrad_insel/bg_entities/aggdino_1.png",
+                    "idle_0": "bg_entities/aggdino_0.png",
+                    "idle_1": "bg_entities/aggdino_1.png",
                 },
                 "normal": {
-                    "idle_0": "konrad_insel/bg_entities/dino_0.png",
-                    "idle_1": "konrad_insel/bg_entities/dino_1.png",
+                    "idle_0": "bg_entities/dino_0.png",
+                    "idle_1": "bg_entities/dino_1.png",
                 },
             },
         },
         "items": {
-            "potion": "konrad_insel/bg_entities/healing0.png",
-            "repellent": "konrad_insel/bg_entities/repellent1_0.png",
+            "potion": "bg_entities/healing0.png",
+            "repellent": "bg_entities/repellent1_0.png",
         },
         "boats": {
-            "frame_0": "konrad_insel/bg_entities/ship_0.png",
-            "frame_1": "konrad_insel/bg_entities/ship_1.png",
+            "frame_0": "bg_entities/ship_0.png",
+            "frame_1": "bg_entities/ship_1.png",
         },
     }
 
     SOUNDS = {
         "entities": {
-            "player_move_soft": "konrad_insel/sounds/player_move_soft.mp3",
-            "potion_use": "konrad_insel/sounds/potion_use.mp3",
-            "repellent_trigger": "konrad_insel/sounds/repellent_trigger.mp3",
-            "player_damage": "konrad_insel/sounds/player_damage.mp3",
+            "player_move_soft": "sounds/player_move_soft.mp3",
+            "potion_use": "sounds/potion_use.mp3",
+            "repellent_trigger": "sounds/repellent_trigger.mp3",
+            "player_damage": "sounds/player_damage.mp3",
         },
         "environment": {
-            "day": "konrad_insel/sounds/day.mp3",
-            "night": "konrad_insel/sounds/night.mp3",
-            "boat_arrives": "konrad_insel/sounds/boat_arrives.mp3",
+            "day": "sounds/day.mp3",
+            "night": "sounds/night.mp3",
+            "boat_arrives": "sounds/boat_arrives.mp3",
             "background_music": [
-                "konrad_insel/sounds/music1.mp3",
-                "konrad_insel/sounds/music2.mp3",
+                "sounds/music1.mp3",
+                "sounds/music2.mp3",
             ],
         },
         "actions": {
-            "game_start": "konrad_insel/sounds/game_start.mp3",
-            "game_over": "konrad_insel/sounds/game_over.mp3",
-            "win_game": "konrad_insel/sounds/win_game.mp3",
-            "dino_roar": "konrad_insel/sounds/dino_roar.mp3",
-            "dino_steps": "konrad_insel/sounds/dino_steps.mp3",
-            "potion_pickup": "konrad_insel/sounds/potion_repellent_pickup.mp3",
-            "healing": "konrad_insel/sounds/healing.mp3",
-            "screen_flash": "konrad_insel/sounds/screen_flash.mp3",
-            "repellent_trigger": "konrad_insel/sounds/repellent_trigger.mp3",
+            "game_start": "sounds/game_start.mp3",
+            "game_over": "sounds/game_over.mp3",
+            "win_game": "sounds/win_game.mp3",
+            "dino_roar": "sounds/dino_roar.mp3",
+            "dino_steps": "sounds/dino_steps.mp3",
+            "potion_pickup": "sounds/potion_repellent_pickup.mp3",
+            "healing": "sounds/healing.mp3",
+            "screen_flash": "sounds/screen_flash.mp3",
+            "repellent_trigger": "sounds/repellent_trigger.mp3",
         },
     }
 
@@ -141,12 +141,12 @@ class Config:
     MUSIC_VOLUME_NIGHT = 0.4
 
     SCREENS = {
-        "title": "konrad_insel/bg_images/title.png",
-        "begin": "konrad_insel/bg_images/begin.png",
-        "help":  "konrad_insel/bg_images/help.png",
-        "lose":  "konrad_insel/bg_images/loose.png",
-        "pause": "konrad_insel/bg_images/pause.png",
-        "win":   "konrad_insel/bg_images/rescue.png",
+        "title": "bg_images/title.png",
+        "begin": "bg_images/begin.png",
+        "help":  "bg_images/help.png",
+        "lose":  "bg_images/loose.png",
+        "pause": "bg_images/pause.png",
+        "win":   "bg_images/rescue.png",
     }
 
     TEXTS = {
