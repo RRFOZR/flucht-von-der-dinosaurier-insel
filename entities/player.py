@@ -30,9 +30,14 @@ class Player(Entity):
         self.animation_interval = 0.15  # Faster animation for smooth 60 FPS
         self.facing_left = False
 
-        # Footstep audio
-        self.footstep_sound = sound_manager.sounds["entities"].get("player_move_soft", None)
-        self.footstep_channel = pygame.mixer.Channel(1)
+        # Footstep audio (guard against missing audio system)
+        self.footstep_sound = sound_manager.sounds.get("entities", {}).get("player_move_soft", None)
+        self.footstep_channel = None
+        if sound_manager.audio_available and self.footstep_sound:
+            try:
+                self.footstep_channel = pygame.mixer.Channel(1)
+            except pygame.error as e:
+                logger.warning(f"Could not create footstep channel: {e}")
         self.is_moving = False
 
     def move(self, dx: float, dy: float, game_map: list[list[int]]) -> None:
@@ -52,15 +57,21 @@ class Player(Entity):
             self.facing_left = False
 
         if dx != 0 or dy != 0:
-            if not self.is_moving and self.footstep_sound:
+            if not self.is_moving and self.footstep_sound and self.footstep_channel:
                 self.is_moving = True
-                if not self.footstep_channel.get_busy():
-                    self.footstep_channel.play(self.footstep_sound, loops=-1)
+                try:
+                    if not self.footstep_channel.get_busy():
+                        self.footstep_channel.play(self.footstep_sound, loops=-1)
+                except pygame.error:
+                    pass  # Silently fail if audio system is unavailable
         else:
-            if self.is_moving:
+            if self.is_moving and self.footstep_channel:
                 self.is_moving = False
-                if self.footstep_channel.get_busy():
-                    self.footstep_channel.stop()
+                try:
+                    if self.footstep_channel.get_busy():
+                        self.footstep_channel.stop()
+                except pygame.error:
+                    pass  # Silently fail if audio system is unavailable
 
     def update(self, dt: float) -> None:
         if self.repellent_active:

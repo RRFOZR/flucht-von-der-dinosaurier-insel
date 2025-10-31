@@ -52,7 +52,7 @@ class Game:
         self.hud = None
         self.items = []
         self.dinosaurs = []
-        self.lava_fields = []
+        self.lava_fields = set()  # Use set for O(1) membership checks
         self.last_lava_time = 0
 
         # Boat
@@ -140,7 +140,7 @@ class Game:
         self.boat_animation_timer = 0.0
 
         # Reset lava
-        self.lava_fields = []
+        self.lava_fields = set()
         self.last_lava_time = time.time()
 
         # Start background music
@@ -185,12 +185,16 @@ class Game:
             self.cleanup()
 
     def cleanup(self) -> None:
-        """Clean up resources before exiting."""
+        """Clean up resources before exiting. Returns control to caller."""
         logger.info("Cleaning up resources...")
 
-        # Stop all sounds
-        pygame.mixer.stop()
-        pygame.mixer.music.stop()
+        # Stop all sounds (guard against missing audio)
+        try:
+            if pygame.mixer.get_init():
+                pygame.mixer.stop()
+                pygame.mixer.music.stop()
+        except pygame.error as e:
+            logger.warning(f"Error stopping audio: {e}")
 
         # Quit joystick if it exists
         playing_scene = self.scenes.get(GameState.PLAYING)
@@ -198,7 +202,7 @@ class Game:
             playing_scene.joystick_handler.quit()
 
         pygame.quit()
-        sys.exit()
+        logger.info("Cleanup complete")
 
     def world_to_screen(self, wx: float, wy: float) -> tuple[int, int]:
         """

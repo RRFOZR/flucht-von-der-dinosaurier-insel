@@ -62,22 +62,29 @@ class Particle:
     def render(self, surface: pygame.Surface, camera_offset_x: float = 0,
                camera_offset_y: float = 0) -> None:
         """
-        Render the particle.
+        Render the particle using cached surfaces.
 
         Args:
             surface: Surface to render to
             camera_offset_x: Camera x offset for world-to-screen conversion
             camera_offset_y: Camera y offset for world-to-screen conversion
         """
+        if self.alpha <= 0:
+            return
+
         screen_x = int(self.x - camera_offset_x)
         screen_y = int(self.y - camera_offset_y)
 
-        if self.alpha > 0:
-            # Create a temporary surface with alpha
-            temp_surf = pygame.Surface((int(self.size * 2), int(self.size * 2)), pygame.SRCALPHA)
-            pygame.draw.circle(temp_surf, (*self.color, self.alpha),
-                             (int(self.size), int(self.size)), int(self.size))
-            surface.blit(temp_surf, (screen_x - int(self.size), screen_y - int(self.size)))
+        # Get cached particle surface and apply alpha
+        from engine.particle_system import ParticleSystem
+        size_int = int(self.size)
+        cached_surf = ParticleSystem._get_cached_particle_surface(size_int, self.color)
+
+        # Copy and set alpha
+        alpha_surf = cached_surf.copy()
+        alpha_surf.set_alpha(self.alpha)
+
+        surface.blit(alpha_surf, (screen_x - size_int, screen_y - size_int))
 
 
 class ParticleSystem:
@@ -85,9 +92,32 @@ class ParticleSystem:
     Manages multiple particles for visual effects.
     """
 
+    # Class-level cache for particle surfaces (shared across all instances)
+    _surface_cache: dict[tuple[int, tuple[int, int, int]], pygame.Surface] = {}
+
     def __init__(self) -> None:
         """Initialize the particle system."""
         self.particles: list[Particle] = []
+
+    @classmethod
+    def _get_cached_particle_surface(cls, size: int, color: tuple[int, int, int]) -> pygame.Surface:
+        """
+        Get a cached particle surface or create one if needed.
+
+        Args:
+            size: Particle size in pixels
+            color: RGB color tuple
+
+        Returns:
+            Cached surface for this size/color combo
+        """
+        cache_key = (size, color)
+        if cache_key not in cls._surface_cache:
+            surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            # Pre-render the particle at full alpha
+            pygame.draw.circle(surf, (*color, 255), (size, size), size)
+            cls._surface_cache[cache_key] = surf
+        return cls._surface_cache[cache_key]
 
     def emit(self, x: float, y: float, count: int = 10,
              color: tuple[int, int, int] = (255, 255, 255),

@@ -42,6 +42,12 @@ class HUD:
             else:
                 self.item_sprites[item_type] = None
 
+        # Minimap caching for performance
+        self.minimap_size = (200, 150)
+        self.minimap_pos = (Config.WINDOW_WIDTH - self.minimap_size[0] - 10, 10)
+        self.minimap_terrain_cache = None
+        self.minimap_needs_refresh = True
+
     def update(self, dt: float) -> None:
         if self.screen_flash:
             self.flash_timer -= dt
@@ -96,40 +102,59 @@ class HUD:
         self.screen_flash = (color, alpha, duration)
         self.flash_timer = duration
 
-    def draw_minimap(self) -> None:
-        mw, mh = 200, 150
-        mmx, mmy = Config.WINDOW_WIDTH - mw - 10, 10
-        pygame.draw.rect(self.game.window, (50, 50, 50), (mmx, mmy, mw, mh))
-
+    def _refresh_minimap_terrain(self) -> None:
+        """Render the minimap terrain (static tiles) to cache."""
+        mw, mh = self.minimap_size
         mapw, maph = Config.MAP_WIDTH, Config.MAP_HEIGHT
+
+        # Create cached surface if needed
+        if self.minimap_terrain_cache is None:
+            self.minimap_terrain_cache = pygame.Surface(self.minimap_size)
+
+        # Background
+        self.minimap_terrain_cache.fill((50, 50, 50))
+
+        # Draw all terrain tiles (only needs to be done once!)
         for my in range(mh):
             row = int(my / mh * maph)
             for mx in range(mw):
                 col = int(mx / mw * mapw)
                 tile = self.game.game_map[row][col]
                 c = Config.BIOMES[tile]["color"]
-                if (col, row) in self.game.lava_fields:
-                    c = (255, 0, 0)
-                self.game.window.set_at((mmx + mx, mmy + my), c)
+                self.minimap_terrain_cache.set_at((mx, my), c)
 
-        # Draw player
+        self.minimap_needs_refresh = False
+
+    def draw_minimap(self) -> None:
+        """Draw the minimap with cached terrain and dynamic entities."""
+        mw, mh = self.minimap_size
+        mmx, mmy = self.minimap_pos
+        mapw, maph = Config.MAP_WIDTH, Config.MAP_HEIGHT
+
+        # Refresh terrain cache if needed (only on first call or map change)
+        if self.minimap_needs_refresh or self.minimap_terrain_cache is None:
+            self._refresh_minimap_terrain()
+
+        # Blit cached terrain
+        self.game.window.blit(self.minimap_terrain_cache, (mmx, mmy))
+
+        # Draw lava fields (dynamic)
+        for lx, ly in self.game.lava_fields:
+            mx = int(lx / mapw * mw)
+            my = int(ly / maph * mh)
+            if 0 <= mx < mw and 0 <= my < mh:
+                self.game.window.set_at((mmx + mx, mmy + my), (255, 0, 0))
+
+        # Draw player (dynamic)
         px = int(self.player.x / mapw * mw)
         py = int(self.player.y / maph * mh)
-        for dy in range(-1, 2):
-            for dx in range(-1, 2):
-                fx = mmx + px + dx
-                fy = mmy + py + dy
-                if 0 <= fx < mmx + mw and 0 <= fy < mmy + mh:
-                    self.game.window.set_at((fx, fy), (0, 0, 255))
+        pygame.draw.rect(self.game.window, (0, 0, 255),
+                        (mmx + px - 1, mmy + py - 1, 3, 3))
 
-        # Draw dinosaurs
+        # Draw dinosaurs (dynamic)
         for dino in self.game.dinosaurs:
             dx = int(dino.x / mapw * mw)
             dy = int(dino.y / maph * mh)
             color = (255, 0, 0) if dino.aggressive else (0, 255, 0)
-            for ddy in range(-1, 2):
-                for ddx in range(-1, 2):
-                    fx = mmx + dx + ddx
-                    fy = mmy + dy + ddy
-                    if 0 <= fx < mmx + mw and 0 <= fy < mmy + mh:
-                        self.game.window.set_at((fx, fy), color)
+            pygame.draw.rect(self.game.window, color,
+                           (mmx + dx - 1, mmy + dy - 1, 2, 2))

@@ -17,18 +17,33 @@ if TYPE_CHECKING:
 
 def spawn_items(game: Game, count: int = 6) -> None:
     """
-    Spawn a given number of items (potions/repellent) near the map center.
+    Spawn items distributed across the map (not just center).
+    Items spawn in a wider area to encourage exploration.
     """
-    center_x = Config.MAP_WIDTH // 2
-    center_y = Config.MAP_HEIGHT // 2
-    for _ in range(count):
+    spawned = 0
+    attempts = 0
+    max_attempts = count * 10  # Prevent infinite loops
+
+    while spawned < count and attempts < max_attempts:
+        attempts += 1
         t = random.choice(["potion", "repellent"])
-        rx = center_x + random.randint(-15, 15)
-        ry = center_y + random.randint(-15, 15)
+
+        # Spawn in wider areas - full map coverage
+        rx = random.randint(Config.MAP_WIDTH // 4, 3 * Config.MAP_WIDTH // 4)
+        ry = random.randint(Config.MAP_HEIGHT // 4, 3 * Config.MAP_HEIGHT // 4)
+
         if 0 <= rx < Config.MAP_WIDTH and 0 <= ry < Config.MAP_HEIGHT:
             if is_passable(rx, ry, game.game_map):
-                game.items.append(Item(rx, ry, t))
-    logger.info(f"Spawned {len(game.items)} items. (requested {count})")
+                # Check that no item is already too close (min 5 tiles apart)
+                too_close = any(
+                    abs(item.x - rx) < 5 and abs(item.y - ry) < 5
+                    for item in game.items
+                )
+                if not too_close:
+                    game.items.append(Item(rx, ry, t))
+                    spawned += 1
+
+    logger.info(f"Spawned {spawned} items across the map (requested {count})")
 
 def spawn_dinosaurs(game: Game, n_normal: int, n_aggressive: int) -> None:
     """

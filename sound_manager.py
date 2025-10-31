@@ -10,21 +10,33 @@ logger = logging.getLogger(__name__)
 class SoundManager:
     """
     Manages sound effects and background music using pygame.mixer.
+    Gracefully handles systems without audio devices.
     """
 
     def __init__(self) -> None:
-        if not pygame.mixer.get_init():
-            try:
-                pygame.mixer.init()
-                logger.info("Pygame mixer initialized successfully.")
-            except pygame.error as e:
-                logger.error(f"Failed to initialize Pygame mixer: {e}")
-
+        self.audio_available = False
         self.sounds = {}
         self.background_music_tracks = []
         self.music_on = True
         self.current_music = None
-        self._load_sounds()
+
+        # Try to initialize mixer
+        if not pygame.mixer.get_init():
+            try:
+                pygame.mixer.init()
+                self.audio_available = True
+                logger.info("Pygame mixer initialized successfully.")
+            except pygame.error as e:
+                logger.warning(f"Audio not available - running in silent mode: {e}")
+                self.audio_available = False
+        else:
+            self.audio_available = True
+
+        # Only load sounds if audio is available
+        if self.audio_available:
+            self._load_sounds()
+        else:
+            logger.info("Skipping sound loading - audio system unavailable")
 
     def _load_sounds(self) -> None:
         for category, sounds_dict in Config.SOUNDS.items():
@@ -46,14 +58,19 @@ class SoundManager:
             logger.info("No background music tracks found.")
 
     def play(self, category: str, name: str, loops: int = 0) -> None:
+        if not self.audio_available:
+            return
         sfx = self.sounds.get(category, {}).get(name, None)
         if sfx:
-            sfx.play(loops=loops)
+            try:
+                sfx.play(loops=loops)
+            except pygame.error as e:
+                logger.warning(f"Failed to play sound '{name}': {e}")
         else:
             logger.warning(f"Sound '{name}' in category '{category}' not found or invalid.")
 
     def play_music(self) -> None:
-        if not self.music_on or not self.background_music_tracks:
+        if not self.audio_available or not self.music_on or not self.background_music_tracks:
             return
         selected_music = random.choice(self.background_music_tracks)
         try:
@@ -66,24 +83,36 @@ class SoundManager:
             logger.warning(f"Could not load background music '{selected_music}': {e}")
 
     def toggle_music(self) -> None:
-        if self.music_on:
-            pygame.mixer.music.pause()
-            self.music_on = False
-            logger.info("Background music paused.")
-        else:
-            pygame.mixer.music.unpause()
-            self.music_on = True
-            logger.info("Background music resumed.")
+        if not self.audio_available:
+            return
+        try:
+            if self.music_on:
+                pygame.mixer.music.pause()
+                self.music_on = False
+                logger.info("Background music paused.")
+            else:
+                pygame.mixer.music.unpause()
+                self.music_on = True
+                logger.info("Background music resumed.")
+        except pygame.error as e:
+            logger.warning(f"Failed to toggle music: {e}")
 
     def stop_music(self) -> None:
-        pygame.mixer.music.stop()
-        self.music_on = False
-        logger.info("Background music stopped.")
+        if not self.audio_available:
+            return
+        try:
+            pygame.mixer.music.stop()
+            self.music_on = False
+            logger.info("Background music stopped.")
+        except pygame.error as e:
+            logger.warning(f"Failed to stop music: {e}")
 
     def is_music_on(self) -> bool:
         return self.music_on
 
     def set_sound_volume(self, category: str, name: str, volume: float) -> None:
+        if not self.audio_available:
+            return
         volume = max(0.0, min(1.0, volume))
         sfx = self.sounds.get(category, {}).get(name, None)
         if sfx:
@@ -93,9 +122,14 @@ class SoundManager:
             logger.warning(f"Sound '{name}' in category '{category}' not found.")
 
     def set_music_volume(self, volume: float) -> None:
+        if not self.audio_available:
+            return
         volume = max(0.0, min(1.0, volume))
-        pygame.mixer.music.set_volume(volume)
-        Config.DEFAULT_SOUND_VOLUME = volume
-        logger.info(f"Background music volume set to {volume}.")
+        try:
+            pygame.mixer.music.set_volume(volume)
+            Config.DEFAULT_SOUND_VOLUME = volume
+            logger.info(f"Background music volume set to {volume}.")
+        except pygame.error as e:
+            logger.warning(f"Failed to set music volume: {e}")
 
 sound_manager = SoundManager()

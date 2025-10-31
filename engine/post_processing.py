@@ -31,8 +31,14 @@ class PostProcessing:
         self.aberration_strength = 2
         self.noise_intensity = 10
 
-        # Pre-create vignette surface
+        # Pre-create cached surfaces for performance
         self.vignette_surface = self._create_vignette()
+        self.scanline_surface = self._create_scanlines()
+
+        # Noise throttling
+        self.noise_surface = None
+        self.noise_update_timer = 0.0
+        self.noise_update_interval = 0.1  # Update noise every 0.1 seconds
 
     def _create_vignette(self) -> pygame.Surface:
         """Create vignette overlay surface."""
@@ -51,6 +57,17 @@ class PostProcessing:
 
         return surface
 
+    def _create_scanlines(self) -> pygame.Surface:
+        """Create cached scanline overlay surface."""
+        surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+
+        # Draw scanlines every other row
+        for y in range(0, self.height, 2):
+            pygame.draw.line(surface, (0, 0, 0, self.scanline_intensity),
+                           (0, y), (self.width, y), 1)
+
+        return surface
+
     def apply_vignette(self, surface: pygame.Surface) -> None:
         """
         Apply vignette effect.
@@ -63,33 +80,30 @@ class PostProcessing:
 
     def apply_scanlines(self, surface: pygame.Surface) -> None:
         """
-        Apply CRT-style scanlines.
+        Apply CRT-style scanlines using cached surface.
 
         Args:
             surface: Surface to apply effect to
         """
-        if not self.scanlines_enabled:
-            return
+        if self.scanlines_enabled:
+            surface.blit(self.scanline_surface, (0, 0))
 
-        for y in range(0, self.height, 2):
-            pygame.draw.line(surface, (0, 0, 0),
-                           (0, y), (self.width, y), 1)
-            # Make it subtle
-            line_surf = pygame.Surface((self.width, 1), pygame.SRCALPHA)
-            line_surf.fill((0, 0, 0, self.scanline_intensity))
-            surface.blit(line_surf, (0, y))
-
-    def apply_screen_noise(self, surface: pygame.Surface) -> None:
+    def update(self, dt: float) -> None:
         """
-        Apply random pixel noise (old TV static effect).
+        Update time-based effects like noise.
 
         Args:
-            surface: Surface to apply effect to
+            dt: Delta time in seconds
         """
-        if not self.screen_noise_enabled:
-            return
+        if self.screen_noise_enabled:
+            self.noise_update_timer += dt
+            if self.noise_update_timer >= self.noise_update_interval:
+                self.noise_update_timer = 0.0
+                self._regenerate_noise()
 
-        noise_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+    def _regenerate_noise(self) -> None:
+        """Regenerate the noise surface."""
+        self.noise_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
 
         # Add random pixels
         num_pixels = (self.width * self.height) // 200  # Sparse noise
@@ -98,9 +112,17 @@ class PostProcessing:
             y = random.randint(0, self.height - 1)
             intensity = random.randint(0, self.noise_intensity)
             color = (intensity, intensity, intensity, 100)
-            noise_surface.set_at((x, y), color)
+            self.noise_surface.set_at((x, y), color)
 
-        surface.blit(noise_surface, (0, 0))
+    def apply_screen_noise(self, surface: pygame.Surface) -> None:
+        """
+        Apply random pixel noise (old TV static effect) using cached/throttled surface.
+
+        Args:
+            surface: Surface to apply effect to
+        """
+        if self.screen_noise_enabled and self.noise_surface:
+            surface.blit(self.noise_surface, (0, 0))
 
     def apply_all(self, surface: pygame.Surface) -> None:
         """

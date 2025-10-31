@@ -32,9 +32,10 @@ class Config:
     PLAYER_SPEED = 30  # Pixels per second (adjusted for delta time)
     PLAYER_MAX_HP = 120
 
-    DINOSAUR_COUNT_NORMAL = 100
+    # Balanced dinosaur counts - reduced from 160 total for better pacing
+    DINOSAUR_COUNT_NORMAL = 60  # Reduced from 100
     DINOSAUR_SPEED_NORMAL = 30.0  # Pixels per second (adjusted for delta time)
-    DINOSAUR_COUNT_AGGRESSIVE = 60
+    DINOSAUR_COUNT_AGGRESSIVE = 30  # Reduced from 60
     DINOSAUR_SPEED_AGGRESSIVE = 24.0  # Pixels per second (adjusted for delta time)
     DINOSAUR_SIGHT_DAY = 5
     DINOSAUR_SIGHT_NIGHT = 8

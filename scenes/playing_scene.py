@@ -43,6 +43,10 @@ class PlayingScene(Scene):
         self.start_time = 0
         self.old_night_state = None
 
+        # Lava warning system
+        self.lava_warning_time = 2.0  # Show warnings 2 seconds before lava
+        self.showing_lava_warning = False
+
         # Joystick handler
         self.joystick_handler = None
         if Config.ENABLE_JOYSTICK:
@@ -51,6 +55,18 @@ class PlayingScene(Scene):
                 self.joystick_handler = JoystickHandler()
             except Exception as e:
                 logger.warning(f"Failed to initialize joystick handler: {e}")
+
+        # Pre-render tile surfaces for performance
+        self.tile_cache = {}
+        for tile_id, biome_data in Config.BIOMES.items():
+            tile_surf = pygame.Surface((Config.TILE_SIZE, Config.TILE_SIZE))
+            tile_surf.fill(biome_data["color"])
+            self.tile_cache[tile_id] = tile_surf
+        # Add lava tile
+        lava_surf = pygame.Surface((Config.TILE_SIZE, Config.TILE_SIZE))
+        lava_surf.fill((255, 0, 0))
+        self.tile_cache['lava'] = lava_surf
+        logger.info(f"Pre-rendered {len(self.tile_cache)} tile surfaces")
 
     def on_enter(self) -> None:
         """Called when entering playing state."""
@@ -92,6 +108,9 @@ class PlayingScene(Scene):
         # Update audio listener position
         self.audio_3d.set_listener_position(self.game.player.x, self.game.player.y)
 
+        # Update post-processing effects
+        self.post_processing.update(dt)
+
         # Get player input
         keys = pygame.key.get_pressed()
         dx = (keys[pygame.K_RIGHT] or keys[pygame.K_d]) - (keys[pygame.K_LEFT] or keys[pygame.K_a])
@@ -102,6 +121,13 @@ class PlayingScene(Scene):
             jdx, jdy = self.joystick_handler.get_movement()
             dx += jdx
             dy += jdy
+
+        # Normalize diagonal movement to prevent faster speed
+        if dx != 0 and dy != 0:
+            # Diagonal movement - normalize to keep same speed
+            length = (dx * dx + dy * dy) ** 0.5
+            dx /= length
+            dy /= length
 
         # Move player (frame-independent with delta time)
         dx *= Config.PLAYER_SPEED * dt
@@ -124,27 +150,43 @@ class PlayingScene(Scene):
         elif night != self.old_night_state:
             self.old_night_state = night
 
-        # Lava spawning
-        if now - self.game.last_lava_time > Config.LAVA_INTERVAL:
-            self.game.lava_fields = spawn_manager.spawn_lava(self.game)
+        # Lava spawning with warnings
+        time_until_lava = Config.LAVA_INTERVAL - (now - self.game.last_lava_time)
+
+        # Show warning particles before lava spawns
+        if 0 < time_until_lava <= self.lava_warning_time and not self.showing_lava_warning:
+            self.showing_lava_warning = True
+            self.game.hud.trigger_flash((255, 100, 0), 80, 0.3)
+            logger.info("Lava warning! Eruption imminent!")
+
+        # Spawn lava
+        if time_until_lava <= 0:
+            lava_list = spawn_manager.spawn_lava(self.game)
+            self.game.lava_fields = set(lava_list)  # Convert to set for fast lookups
             self.game.last_lava_time = now
+            self.showing_lava_warning = False
 
             # Camera shake for lava!
-            self.camera.shake(intensity=4, duration=0.4, falloff="exponential")
+            self.camera.shake(intensity=6, duration=0.5, falloff="exponential")
 
-            # Emit lava particles at each lava field
-            for lx, ly in self.game.lava_fields[:5]:
+            # Screen flash for dramatic effect
+            self.game.hud.trigger_flash((255, 0, 0), 120, 0.4)
+
+            # Emit lava particles at each lava field for visual feedback
+            for i, (lx, ly) in enumerate(self.game.lava_fields):
+                if i >= 10:  # Limit particles for performance
+                    break
                 px, py = self.camera.world_to_screen(lx, ly)
                 self.particle_system.emit(
                     px + Config.TILE_SIZE // 2,
                     py + Config.TILE_SIZE // 2,
-                    count=5,
+                    count=8,
                     color=(255, 100, 0),
-                    speed_range=(10, 30),
+                    speed_range=(20, 50),
                     lifetime_range=(1.0, 2.0),
-                    spread_angle=60,
+                    spread_angle=90,
                     direction=-90,
-                    gravity=50
+                    gravity=80
                 )
 
         # Build spatial grid for efficient collision detection
@@ -260,20 +302,21 @@ class PlayingScene(Scene):
         self.debug_overlay.render(surface)
 
     def _draw_map(self, surface: pygame.Surface) -> None:
-        """Draw the game map tiles."""
+        """Draw the game map tiles using cached surfaces."""
         start_x, start_y, end_x, end_y = self.camera.get_visible_bounds()
 
         for ty in range(start_y, end_y):
             for tx in range(start_x, end_x):
                 tile_id = self.game.game_map[ty][tx]
-                c = Config.BIOMES[tile_id]["color"]
 
-                # Lava fields override
+                # Use lava tile if this position has lava, otherwise use terrain tile
                 if (tx, ty) in self.game.lava_fields:
-                    c = (255, 0, 0)
+                    tile_surf = self.tile_cache['lava']
+                else:
+                    tile_surf = self.tile_cache[tile_id]
 
                 sx, sy = self.camera.world_to_screen(tx, ty)
-                pygame.draw.rect(surface, c, (sx, sy, Config.TILE_SIZE, Config.TILE_SIZE))
+                surface.blit(tile_surf, (sx, sy))
 
         # Draw boat
         if self.game.boat_active and self.game.boat_x is not None:
